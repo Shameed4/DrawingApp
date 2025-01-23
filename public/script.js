@@ -2,19 +2,23 @@ const videoElement = document.getElementById('video');
 const canvasElement = document.getElementById('canvas');
 const canvasCtx = canvasElement.getContext('2d');
 
-// Set canvas size (you can adjust these to your preference)
-canvasElement.width = 640;
-canvasElement.height = 480;
+// Larger resolution for bigger camera and canvas
+const VIDEO_WIDTH = 900;
+const VIDEO_HEIGHT = 600;
+
+videoElement.width = VIDEO_WIDTH;
+videoElement.height = VIDEO_HEIGHT;
+canvasElement.width = VIDEO_WIDTH;
+canvasElement.height = VIDEO_HEIGHT;
 
 let drawing = false;
 let lastX = null;
 let lastY = null;
-let gameTime = 30; // seconds (set to 30 for demo; change to 1800 for 30 minutes if desired)
+let gameTime = 30; // seconds (demo)
 let timerInterval = null;
 
 /**
- * Calculate distance between two landmarks.
- * Landmarks have x, y in [0..1] range (normalized by MediaPipe).
+ * Distance between two landmarks.
  */
 function getDistance(p1, p2) {
   const dx = p1.x - p2.x;
@@ -28,29 +32,26 @@ function getDistance(p1, p2) {
 function onResults(results) {
   if (!results.multiHandLandmarks) return;
 
-  // We'll just track the first detected hand
   const landmarks = results.multiHandLandmarks[0];
   if (!landmarks) return;
 
-  // Index Finger tip is landmarks[8], thumb tip is landmarks[4]
+  // Index Finger tip = [8], Thumb tip = [4]
   const indexFingerTip = landmarks[8];
   const thumbTip = landmarks[4];
   
-  // If index finger tip and thumb tip are close => "pen down"
+  // If they're close => "draw mode"
   const distance = getDistance(indexFingerTip, thumbTip);
-  const threshold = 0.05; // Adjust as needed
+  const threshold = 0.05;
 
   if (distance < threshold) {
-    // User is "pinching" => drawing mode
     drawing = true;
   } else {
-    // Not pinching => pen up
     drawing = false;
     lastX = null;
     lastY = null;
   }
 
-  // If drawing, convert normalized coords to canvas coords and draw
+  // Drawing
   if (drawing) {
     const x = indexFingerTip.x * canvasElement.width;
     const y = indexFingerTip.y * canvasElement.height;
@@ -64,7 +65,7 @@ function onResults(results) {
     canvasCtx.beginPath();
     canvasCtx.moveTo(lastX, lastY);
     canvasCtx.lineTo(x, y);
-    canvasCtx.strokeStyle = 'black';
+    canvasCtx.strokeStyle = 'white'; // Contrasts with purple
     canvasCtx.lineWidth = 4;
     canvasCtx.stroke();
     canvasCtx.closePath();
@@ -75,12 +76,10 @@ function onResults(results) {
 }
 
 /**
- * Configure MediaPipe Hands
+ * MediaPipe Hands
  */
 const hands = new Hands({
-  locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-  }
+  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
 hands.setOptions({
   maxNumHands: 1,
@@ -91,20 +90,21 @@ hands.setOptions({
 hands.onResults(onResults);
 
 /**
- * Use camera_utils to capture webcam and pipe frames into MediaPipe
+ * Use Camera to feed frames to MediaPipe
  */
 const camera = new Camera(videoElement, {
   onFrame: async () => {
     await hands.send({ image: videoElement });
   },
-  width: 640,
-  height: 480
+  width: VIDEO_WIDTH,
+  height: VIDEO_HEIGHT
 });
 camera.start();
 
 /**
  * Start the game timer
  */
+/*
 function startTimer() {
   const timerElement = document.getElementById('timer');
   let timeLeft = gameTime;
@@ -115,31 +115,46 @@ function startTimer() {
     
     if (timeLeft <= 0) {
       clearInterval(timerInterval);
-      // Time's up - submit canvas automatically
+      // Time's up - submit
       submitCanvas();
     }
   }, 1000);
 }
+*/
+/**
+ * Capture a snapshot of the user's face/hands from the webcam
+ */
+function captureUserPhoto() {
+  // Create a temp canvas to draw the current video frame
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = VIDEO_WIDTH;
+  tempCanvas.height = VIDEO_HEIGHT;
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.drawImage(videoElement, 0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
+  return tempCanvas.toDataURL('image/png');
+}
 
 /**
- * Submit the canvas image to the server
+ * Submit the canvas image + user photo to the server
  */
 function submitCanvas() {
-  // Convert canvas to a base64 data URL (PNG)
-  const dataURL = canvasElement.toDataURL('image/png');
-  
+  const drawingDataURL = canvasElement.toDataURL('image/png');
+  const userPhoto = captureUserPhoto();
+
   fetch('/submit-drawing', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ imageData: dataURL })
+    body: JSON.stringify({
+      imageData: drawingDataURL,
+      userPhoto: userPhoto
+    })
   })
     .then(res => res.json())
     .then(data => {
       console.log(data);
-      alert('Your artwork has been submitted!');
-      // Redirect to the voting page
+      // Auto-redirect to voting page
       window.location.href = '/vote.html';
     })
     .catch(err => {
@@ -148,5 +163,8 @@ function submitCanvas() {
     });
 }
 
-// Start the timer on page load
-startTimer();
+// Start the game timer
+//startTimer();
+// Stop the game timer
+// clearInterval(timerInterval);
+// Submit the drawing to the server

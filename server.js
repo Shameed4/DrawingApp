@@ -3,61 +3,61 @@ const bodyParser = require('body-parser');
 
 const app = express();
 app.use(express.static('public'));
-app.use(bodyParser.json({ limit: '10mb' })); // Allow larger payload for image data
+app.use(bodyParser.json({ limit: '10mb' }));
 
-// In-memory storage of drawings (base64 images) and votes:
+// In-memory storage of artworks
 let artworks = [];
-
 /**
- * Endpoint to handle submitted drawings
+ * Artwork: {
+ *   id: number,
+ *   dataUrl: string,   // base64 of final canvas
+ *   userPhoto: string, // base64 of webcam snapshot
+ *   score: number,
+ *   votesCount: number
+ * }
  */
+
 app.post('/submit-drawing', (req, res) => {
-  const { imageData } = req.body;
+  const { imageData, userPhoto } = req.body;
   if (!imageData) {
-    return res.status(400).send('No image data provided');
+    return res.status(400).json({ message: 'No image data provided' });
   }
-  // Store the drawing in memory. Each artwork has { id, dataUrl, votes }.
   artworks.push({
-    id: artworks.length, 
-    dataUrl: imageData, 
-    votes: 0
+    id: artworks.length,
+    dataUrl: imageData,
+    userPhoto: userPhoto || null,
+    score: 0,
+    votesCount: 0
   });
-
-  return res.status(200).send({ message: 'Artwork submitted successfully' });
+  res.status(200).json({ message: 'Artwork submitted successfully' });
 });
 
-/**
- * Endpoint to fetch all artworks in random order (for the voting page)
- */
 app.get('/artworks', (req, res) => {
-  // Shuffle the artworks array to randomize display order
+  // Shuffle for random order
   const shuffled = [...artworks].sort(() => Math.random() - 0.5);
-  return res.json(shuffled);
+  res.json(shuffled);
 });
 
-/**
- * Endpoint to record a vote for a given artwork ID
- */
-app.post('/vote', (req, res) => {
-  const { id } = req.body;
+app.post('/rate', (req, res) => {
+  const { id, rating } = req.body;
   const artwork = artworks.find(a => a.id === id);
-  if (artwork) {
-    artwork.votes += 1;
-    return res.status(200).send({ message: 'Vote recorded' });
-  } else {
-    return res.status(400).send({ message: 'Invalid artwork ID' });
+  if (!artwork) {
+    return res.status(400).json({ message: 'Invalid artwork ID' });
   }
+  if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: 'Invalid rating' });
+  }
+  artwork.score += rating;
+  artwork.votesCount += 1;
+  res.status(200).json({ message: 'Rating recorded' });
 });
 
-/**
- * Endpoint to return results in descending order of votes
- */
 app.get('/results', (req, res) => {
-  const sorted = [...artworks].sort((a, b) => b.votes - a.votes);
-  return res.json(sorted);
+  const sorted = [...artworks].sort((a, b) => b.score - a.score);
+  res.json(sorted);
 });
 
-const port = process.env.PORT || 3000;
+const port = 3000;
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`Node server running at http://localhost:${port}`);
 });

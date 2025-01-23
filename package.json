@@ -1,14 +1,13 @@
 {
-    "name": "gesture-drawing-app",
-    "version": "1.0.0",
-    "description": "A simple gesture-based drawing app using MediaPipe and Node.js",
-    "main": "server.js",
-    "scripts": {
-      "start": "node server.js"
-    },
-    "dependencies": {
-      "express": "^4.18.2",
-      "body-parser": "^1.20.2"
-    }
+  "name": "gesture-drawing-app",
+  "version": "1.0.0",
+  "description": "Node-based front-end for server-side Mediapipe drawing with webcam feed under canvas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
   }
-  
+}
