@@ -142,9 +142,17 @@
             prevY = null;
             return;
         }
-        const landmarks = results.multiHandLandmarks[0];
-        const extendedFingers = detectExtendedFingers(landmarks);
+        // Clear the canvas for the current frame
+        clearCanvas();
 
+        // Get the landmarks for the first detected hand
+        const landmarks = results.multiHandLandmarks[0];
+
+        // Draw the hand skeleton on the canvas
+        drawHandSkeleton(landmarks);
+
+        const extendedFingers = detectExtendedFingers(landmarks);
+        // Draw the hand skeleton on the canvas
         if (extendedFingers.includes(1) && extendedFingers.length === 1) {
             drawWithIndex(landmarks[8]);
         } else {
@@ -152,6 +160,50 @@
             prevY = null;
         }
     }
+
+    function drawHandSkeleton(landmarks) {
+        // Use Mediapipe's hand connections
+        const connections = [
+            [0, 1], [1, 2], [2, 3], [3, 4],      // Thumb
+            [0, 5], [5, 6], [6, 7], [7, 8],      // Index finger
+            [5, 9], [9, 10], [10, 11], [11, 12], // Middle finger
+            [9, 13], [13, 14], [14, 15], [15, 16], // Ring finger
+            [13, 17], [0, 17], [17, 18], [18, 19], [19, 20] // Pinky
+        ];
+
+        // Draw connections (blue lines)
+        canvasCtx.strokeStyle = "blue";
+        canvasCtx.lineWidth = 2;
+
+        for (let [startIdx, endIdx] of connections) {
+            const start = landmarks[startIdx];
+            const end = landmarks[endIdx];
+
+            // Transform coordinates to canvas space, flip x-axis for horizontal reflection
+            const startX = start.x * canvasElement.width; // Normal x
+            const startY = start.y * canvasElement.height;
+            const endX = end.x * canvasElement.width; // Normal x
+            const endY = end.y * canvasElement.height;
+
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(startX, startY);
+            canvasCtx.lineTo(endX, endY);
+            canvasCtx.stroke();
+        }
+
+        // Draw landmarks (red circles)
+        canvasCtx.fillStyle = "red";
+        for (let point of landmarks) {
+            const x = point.x * canvasElement.width; // Normal x
+            const y = point.y * canvasElement.height;
+
+            canvasCtx.beginPath();
+            canvasCtx.arc(x, y, 5, 0, 2 * Math.PI); // Radius 5
+            canvasCtx.fill();
+        }
+    }
+
+
 
     function drawWithIndex(indexTip) {
         // Transform the x-coordinate for the flipped canvas
