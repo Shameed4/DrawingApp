@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import math
 
 # Initialize Mediapipe and OpenCV
 mp_hands = mp.solutions.hands
@@ -27,6 +28,9 @@ def draw_palette_and_slider(frame, brush_thickness, slider_coords):
         cv2.rectangle(frame, (x1, y1), (x2, y2), color_option, -1)
         cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 255), 2)  # Border
 
+    
+    cv2.rectangle(frame, (0, 0), (int(0.15*width), height), (0, 0, 0), -1)  # Border
+    
     # Draw the slider
     slider_x1, slider_y1, slider_x2, slider_y2 = slider_coords
     cv2.rectangle(frame, (slider_x1, slider_y1), (slider_x2, slider_y2), (200, 200, 200), 2)  # Slider border
@@ -48,6 +52,53 @@ def is_in_slider_area(x, y, slider_coords):
     """Check if the finger is interacting with the slider."""
     slider_x1, slider_y1, slider_x2, slider_y2 = slider_coords
     return slider_x1 <= x <= slider_x2 and slider_y1 <= y <= slider_y2
+
+
+# Calculate the distance between two points (x, y)
+def distance(a, b):
+    return math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2)
+
+# Calculate the angle between two vectors
+def calculate_angle(vec1, vec2):
+    dot_product = vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]
+    magnitude_vec1 = math.sqrt(vec1[0]**2 + vec1[1]**2 + vec1[2]**2)
+    magnitude_vec2 = math.sqrt(vec2[0]**2 + vec2[1]**2 + vec2[2]**2)
+    cos_theta = dot_product / (magnitude_vec1 * magnitude_vec2)
+    return math.acos(max(min(cos_theta, 1), -1))  # Clamp for precision errors
+
+def is_thumb_pointer_perpendicular(thumb_tip, thumb_cmc, index_tip, index_mcp):
+    # Define vectors for thumb and index finger
+    thumb_vector = (thumb_tip.x - thumb_cmc.x, thumb_tip.y - thumb_cmc.y, thumb_tip.z - thumb_cmc.z)
+    index_vector = (index_tip.x - index_mcp.x, index_tip.y - index_mcp.y, index_tip.z - index_mcp.z)
+    
+    # Calculate the angle between the vectors
+    angle = calculate_angle(thumb_vector, index_vector)
+    
+    # Threshold for near perpendicular (85 to 95 degrees, in radians)
+    lower_bound = math.radians(30)
+    upper_bound = math.radians(100)
+    
+    # print(f"{(lower_bound, angle, upper_bound, lower_bound <= angle <= upper_bound)}")
+    
+    return lower_bound <= angle <= upper_bound
+
+# Check if the finger is extended based on direction (3D)
+def is_finger_extended(tip, pip, mcp):
+    # Calculate the vector direction between each consecutive pair of landmarks
+    vec_tip_pip = (tip.x - pip.x, tip.y - pip.y, tip.z - pip.z)
+    vec_pip_mcp = (pip.x - mcp.x, pip.y - mcp.y, pip.z - mcp.z)
+    
+    # Calculate the angle between the two vectors
+    dot_product = vec_tip_pip[0] * vec_pip_mcp[0] + vec_tip_pip[1] * vec_pip_mcp[1] + vec_tip_pip[2] * vec_pip_mcp[2]
+    magnitude_tip_pip = math.sqrt(vec_tip_pip[0]**2 + vec_tip_pip[1]**2 + vec_tip_pip[2]**2)
+    magnitude_pip_mcp = math.sqrt(vec_pip_mcp[0]**2 + vec_pip_mcp[1]**2 + vec_pip_mcp[2]**2)
+    
+    # Calculate the angle between the vectors (in radians)
+    cos_theta = dot_product / (magnitude_tip_pip * magnitude_pip_mcp)
+    angle_between_vectors = math.acos(max(min(cos_theta, 1), -1))  # Clamp to [-1, 1] for precision errors
+    
+    # If the angle is large enough, the finger is extended
+    return angle_between_vectors < math.pi / 4  # Threshold angle for an extended finger (45 degrees)
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -120,8 +171,20 @@ while cap.isOpened():
                 prev_x, prev_y = None, None
                 continue
             
+            
+            # Get the landmarks for the thumb
+            thumb_tip = hand_landmarks.landmark[4]  # Tip of the thumb
+            thumb_ip = hand_landmarks.landmark[3]   # Interphalangeal joint (IP)
+            thumb_mcp = hand_landmarks.landmark[2]  # Metacarpophalangeal joint (MCP)
+            thumb_cmc = hand_landmarks.landmark[1]  # Carpometacarpal joint (CMC)
+            
             # Check if the user wants to draw
-            if hand_landmarks.landmark[8].y < hand_landmarks.landmark[6].y:  # Finger raised
+            tip = hand_landmarks.landmark[8]
+            pip = hand_landmarks.landmark[6]
+            mcp = hand_landmarks.landmark[5]
+
+            # print(is_finger_extended(tip, pip, mcp), is_thumb_pointer_perpendicular(thumb_tip, thumb_cmc, tip, mcp))
+            if is_finger_extended(tip, pip, mcp) and not is_thumb_pointer_perpendicular(thumb_tip, thumb_cmc, tip, mcp):  # Finger raised
                 if prev_x is None or prev_y is None:
                     prev_x, prev_y = x, y
                 
