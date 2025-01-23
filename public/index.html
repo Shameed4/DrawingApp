@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Gesture Drawing Game</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Include MediaPipe scripts from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  </head>
+  <body>
+    <h1>Gesture Drawing Game</h1>
+    <div id="timer">Time Left: 30s</div>
+    <!-- Video element to capture camera -->
+    <video id="video" autoplay playsinline></video>
+    <!-- Canvas where users draw with hand gestures -->
+    <canvas id="canvas"></canvas>
+
+    <script src="script.js"></script>
+  </body>
+</html>

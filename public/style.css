@@ -1,0 +1,21 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 20px;
+  }
+  
+  #video {
+    display: block;
+    margin: 0 auto;
+  }
+  
+  #canvas {
+    border: 1px solid #000;
+    display: block;
+    margin: 0 auto;
+  }
+  
+  button {
+    margin: 5px;
+  }
+  
