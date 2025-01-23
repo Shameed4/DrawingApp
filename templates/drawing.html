@@ -1,51 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Gesture Drawing (No Manual Slider)</title>
+    <title>Gesture Drawing (Simple)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Include Socket.IO from a CDN -->
+
+    <!-- Socket.IO client -->
     <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-    
-    <!-- Mediapipe (Hands) -->
+
+    <!-- Mediapipe for gesture recognition -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
 </head>
-<body class="light-purple-bg">
-    <h1 style="text-align:center;">Gesture Drawing (30s)</h1>
-    <div id="timer" class="countdown-timer" style="text-align:center;">Waiting for start...</div>
+<body class="light-purple-bg" style="margin:0; padding:0; text-align:center;">
+    <h1 style="margin-top:20px;">Gesture Drawing (30s)</h1>
+    <div id="timer" style="text-align:center; font-size:18px;">Waiting for start...</div>
 
     <div style="display:flex; justify-content:center; margin-top:20px;">
-      <!-- The video on one side (optionally smaller) -->
-      <video id="userVideo" autoplay playsinline style="border:1px solid black; width:320px; height:240px; margin-right:50px;"></video>
+        <!-- Mirrored webcam feed on the left -->
+        <video id="userVideo" autoplay playsinline
+               style="border:1px solid black; width:320px; height:240px; margin-right:50px; transform: scaleX(-1);">
+        </video>
 
-      <!-- A larger, centered canvas -->
-      <canvas id="drawCanvas" width="900" height="600" 
-              style="border:3px solid #000; background-color:white;"></canvas>
+        <!-- White canvas on the right for drawing -->
+        <canvas id="drawCanvas" width="900" height="600"
+                style="border:3px solid #000; background-color:white;">
+        </canvas>
+    </div>
+
+    <div style="text-align:center; margin-top:20px;">
+        <button onclick="clearCanvas()">Clear Canvas</button>
     </div>
 
     <script>
-    // SocketIO connection
-    var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+    /************************************************************
+     * 1) SOCKET.IO - Timer & Submission
+     ************************************************************/
+    const socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 
-    // Timer / State
-    let drawingActive = false; 
-    let timerInterval = null;
+    let drawingActive = false;
     let timeLeft = 0;
+    let timerInterval = null;
 
     socket.on('startDrawing', (data) => {
-        // Admin triggered the start
-        timeLeft = data.duration; // e.g. 30
+        timeLeft = data.duration || 30;
         drawingActive = true;
         startTimer();
     });
 
-    socket.on('startVoting', (data) => {
-        // If not submitted, submit automatically
+    socket.on('startVoting', () => {
         if (drawingActive) {
             endDrawingAndSubmit();
         }
-        // Then redirect
         window.location.href = "/voting";
     });
 
@@ -54,9 +60,7 @@
     });
 
     function startTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-        }
+        if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
@@ -66,110 +70,91 @@
                 return;
             }
             document.getElementById('timer').innerText = "Time Left: " + timeLeft;
-            timeLeft -= 1;
+            timeLeft--;
         }, 1000);
     }
 
-    // Setup video + canvas
+    /************************************************************
+     * 2) VIDEO STREAM
+     ************************************************************/
     const videoElement = document.getElementById('userVideo');
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            videoElement.srcObject = stream;
+        })
+        .catch(err => {
+            console.error("Camera error:", err);
+        });
+
+    /************************************************************
+     * 3) CANVAS & DRAWING CONTEXT
+     ************************************************************/
     const canvasElement = document.getElementById('drawCanvas');
     const canvasCtx = canvasElement.getContext('2d');
-
-    // Start user camera
-    navigator.mediaDevices.getUserMedia({video:true})
-    .then(stream => {
-        videoElement.srcObject = stream;
-    })
-    .catch(err => {
-        console.error("Camera error:", err);
-    });
-
-    // Our brush settings
     let brushColor = 'black';
     let brushSize = 5;
-
-    // We'll track previous position for drawing
     let prevX = null, prevY = null;
 
-    // Some help to avoid spamming color/size changes
-    let lastGestureChangeTime = 0;
-    const GESTURE_COOLDOWN = 1000; // 1 second
+    clearCanvas();
 
-    // Mediapipe Hands
+    // Initialize Canvas
+    function clearCanvas() {
+        canvasCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.fillStyle = "white";
+        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+
+        // Flip the canvas horizontally to match the mirrored video
+        canvasCtx.translate(canvasElement.width, 0);
+        canvasCtx.scale(-1, 1);
+        prevX = null;
+        prevY = null;
+    }
+
+
+    /************************************************************
+     * 4) MEDIAPIPE HANDS
+     ************************************************************/
     const hands = new Hands({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }
+        locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
     hands.setOptions({
         maxNumHands: 1,
-        modelComplexity: 1
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7
     });
-
     hands.onResults(onResults);
 
-    const camera = new CameraUtils.Camera(videoElement, {
+    const camera = new Camera(videoElement, {
         onFrame: async () => {
-            await hands.send({image: videoElement});
+            await hands.send({ image: videoElement });
         }
     });
     camera.start();
 
+    /************************************************************
+     * 5) On Each Frame - Check if we draw
+     ************************************************************/
     function onResults(results) {
-        // If we're not actively drawing, do nothing
-        if (!drawingActive) {
+        if (!drawingActive || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
             prevX = null;
             prevY = null;
-            return;
-        }
-
-        if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-            prevX = null; prevY = null;
             return;
         }
         const landmarks = results.multiHandLandmarks[0];
-        // landmarks[i] => x,y,z in [0..1] normalized
-
-        // We'll define some basic gesture logic
         const extendedFingers = detectExtendedFingers(landmarks);
-        // extendedFingers is an array of which finger indices are extended (e.g. [0,2] means thumb+middle extended)
-
-        // 1) If only index is extended => we draw
-        // 2) If index+middle => cycle color
-        // 3) If index+ring => increase brush size
-        // 4) If index+pinky => decrease brush size
 
         if (extendedFingers.includes(1) && extendedFingers.length === 1) {
-            // index only => draw
             drawWithIndex(landmarks[8]);
         } else {
-            // If not strictly index only, reset
             prevX = null;
             prevY = null;
-        }
-
-        let now = new Date().getTime();
-        if (now - lastGestureChangeTime > GESTURE_COOLDOWN) {
-            // check for color or size changes
-            // index=1, middle=2, ring=3, pinky=4
-            if (extendedFingers.sort().join(',') === '1,2') {
-                cycleColor();
-                lastGestureChangeTime = now;
-            }
-            else if (extendedFingers.sort().join(',') === '1,3') {
-                // Increase brush
-                brushSize = Math.min(50, brushSize + 2);
-                lastGestureChangeTime = now;
-            }
-            else if (extendedFingers.sort().join(',') === '1,4') {
-                // Decrease brush
-                brushSize = Math.max(1, brushSize - 2);
-                lastGestureChangeTime = now;
-            }
         }
     }
 
     function drawWithIndex(indexTip) {
+        // Transform the x-coordinate for the flipped canvas
         const x = indexTip.x * canvasElement.width;
         const y = indexTip.y * canvasElement.height;
 
@@ -177,10 +162,11 @@
             prevX = x;
             prevY = y;
         }
+
+        // Draw on the flipped canvas
         canvasCtx.strokeStyle = brushColor;
         canvasCtx.lineWidth = brushSize;
         canvasCtx.lineCap = 'round';
-
         canvasCtx.beginPath();
         canvasCtx.moveTo(prevX, prevY);
         canvasCtx.lineTo(x, y);
@@ -190,72 +176,39 @@
         prevY = y;
     }
 
-    function cycleColor() {
-        // Simple cycle among a set of colors
-        const colors = ['black','blue','green','red','yellow','white'];
-        let idx = colors.indexOf(brushColor);
-        idx = (idx + 1) % colors.length;
-        brushColor = colors[idx];
-    }
 
-    // detectExtendedFingers => returns array of finger indices that appear extended
-    // finger index reference: 0=thumb, 1=index, 2=middle, 3=ring, 4=pinky
     function detectExtendedFingers(landmarks) {
-        // A very simplified approach:
-        // We can compare TIP .y with PIP .y (in y-coordinates, if tip is < pip => finger extended in upright scenario).
-        // But this is a simplistic approach that depends on the hand orientation. 
-        // For a more robust approach, measure angles. For brevity, do a simple approach.
-
-        // Landmark indices (for each finger):
-        // Thumb: (4 tip, 3 IP, 2 MCP, 1 CMC)
-        // Index: (8 tip, 7 DIP, 6 PIP, 5 MCP)
-        // Middle: (12 tip, 11 DIP, 10 PIP, 9 MCP)
-        // Ring: (16 tip, 15 DIP, 14 PIP, 13 MCP)
-        // Pinky: (20 tip, 19 DIP, 18 PIP, 17 MCP)
-
         let extended = [];
-
-        // We'll define "extended" if tip.y < pip.y (hand palm down scenario).
-        // For thumb we might do a different check. 
-        // This is a naive approach – for demonstration only.
-
-        // Index finger
-        if (landmarks[8].y < landmarks[6].y) {
-            extended.push(1);
-        }
-        // Middle
-        if (landmarks[12].y < landmarks[10].y) {
-            extended.push(2);
-        }
-        // Ring
-        if (landmarks[16].y < landmarks[14].y) {
-            extended.push(3);
-        }
-        // Pinky
-        if (landmarks[20].y < landmarks[18].y) {
-            extended.push(4);
-        }
-
-        // For the thumb (0)
-        // If we want to consider it, we can do a sideways measure or skip. We'll skip for now.
-
+        if (landmarks[8].y  < landmarks[6].y)  extended.push(1);
+        if (landmarks[12].y < landmarks[10].y) extended.push(2);
+        if (landmarks[16].y < landmarks[14].y) extended.push(3);
+        if (landmarks[20].y < landmarks[18].y) extended.push(4);
         return extended;
     }
 
+    /************************************************************
+     * 6) End Drawing & Submit
+     ************************************************************/
     function endDrawingAndSubmit() {
         drawingActive = false;
-        // Convert final canvas to base64
-        let canvasData = canvasElement.toDataURL('image/png');
 
-        // Also capture a snapshot from video
-        let tempCanvas = document.createElement('canvas');
+        // 1) Convert final canvas to base64
+        const canvasData = canvasElement.toDataURL('image/png');
+
+        // 2) Also capture a snapshot from the mirrored webcam
+        const tempCanvas = document.createElement('canvas');
         tempCanvas.width = videoElement.videoWidth;
         tempCanvas.height = videoElement.videoHeight;
-        let tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
-        let webcamData = tempCanvas.toDataURL('image/png');
+        const tempCtx = tempCanvas.getContext('2d');
 
-        // Send to server
+        // Flip context horizontally before drawing video to keep mirror effect
+        tempCtx.translate(tempCanvas.width, 0);
+        tempCtx.scale(-1, 1);
+        tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+
+        const webcamData = tempCanvas.toDataURL('image/png');
+
+        // 3) POST to /submit_drawing
         fetch("/submit_drawing", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -264,16 +217,10 @@
         .then(res => res.json())
         .then(data => {
             console.log("Submitted drawing:", data);
-            document.getElementById('timer').innerText = "Submitted. Waiting for voting...";
+            document.getElementById('timer').innerText = "Submitted. Waiting...";
         })
         .catch(err => console.error(err));
-        // Only index extended = draw.
-        // Index+Middle extended = change color.
-        // Index+Ring extended = increase brush size.
-        // Index+Pinky extended = decrease brush size.
-
     }
     </script>
 </body>
 </html>
-
