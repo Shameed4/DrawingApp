@@ -96,11 +96,22 @@
         const canvasCtx = canvasElement.getContext('2d');
         const handCanvasElement = document.getElementById('handCanvas');
         const handCanvasCtx = handCanvasElement.getContext('2d');
+        const paletteX = 100;
         let brushColor = 'black';
         let brushSize = 5;
         let prevX = null, prevY = null;
+        const colors = [
+            [0, 'black'],
+            [100, 'red'],
+            [200, 'blue'],
+            [300, 'yellow'],
+            [400, 'green'],
+            [500, 'white'],
+        ]
+        const colorHeight = 100;
 
         clearCanvas();
+        clearHandCanvas();
 
         // Initialize Canvas
         function clearCanvas() {
@@ -119,7 +130,6 @@
 
 
         function clearHandCanvas() {
-            console.log("Clearing hand canvas");
             handCanvasCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
             handCanvasCtx.clearRect(0, 0, handCanvasElement.width, handCanvasElement.height);
             handCanvasCtx.fillStyle = "transparent";
@@ -128,6 +138,14 @@
             // Flip the canvas horizontally to match the mirrored video
             handCanvasCtx.translate(handCanvasElement.width, 0);
             handCanvasCtx.scale(-1, 1);
+            
+            handCanvasCtx.fillRect(0, 0, 100, 100);
+            for (const [start, color] of colors) {
+                handCanvasCtx.fillStyle = color;
+                handCanvasCtx.fillRect(0, start, paletteX, colorHeight);
+            }
+            handCanvasCtx.fillStyle = "black";
+            handCanvasCtx.fillRect(paletteX - 2, 0, 2, 600)
         }
 
 
@@ -222,12 +240,31 @@
             }
         }
 
+        function getColor(x, y) {
+            // console.log(`(${x}, ${y})`)
+            if (x > paletteX)
+                return brushColor;
 
+            for (const [start, color] of colors) {
+                if (start <= y && y <= start + colorHeight) {
+                    return color;
+                }
+            }
+            return brushColor;
+        }
 
         function drawWithIndex(indexTip) {
             // Transform the x-coordinate for the flipped canvas
             const x = indexTip.x * canvasElement.width;
             const y = indexTip.y * canvasElement.height;
+
+            brushColor = getColor(x, y);
+
+            if (x <= paletteX) {
+                prevX = null;
+                prevY = null;
+                return;
+            }
 
             if (prevX == null || prevY == null) {
                 prevX = x;
