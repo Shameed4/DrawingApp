@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gesture Drawing - Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="light-purple-bg">
+    <h1>Welcome to the Gesture Drawing App</h1>
+    <form action="{{ url_for('login') }}" method="POST">
+        <label>Username:</label>
+        <input type="text" name="username" required>
+        <br>
+        <label>Password:</label>
+        <input type="password" name="password" required>
+        <br>
+        <button type="submit">Login</button>
+    </form>
+    <hr>
+    <p>Are you an Admin? <a href="{{ url_for('admin') }}">Admin Login</a></p>
+</body>
+</html>

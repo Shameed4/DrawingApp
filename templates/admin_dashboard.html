@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="light-purple-bg">
+    <h1>Admin Dashboard</h1>
+    <p>Welcome, {{ session['username'] }}!</p>
+
+    <form action="{{ url_for('start_game') }}" method="POST">
+        <button type="submit">Start 30s Drawing</button>
+    </form>
+
+    <form action="{{ url_for('start_voting') }}" method="POST">
+        <button type="submit">Start 10s Voting</button>
+    </form>
+
+    <form action="{{ url_for('end_voting') }}" method="POST">
+        <button type="submit">End Voting & Show Results</button>
+    </form>
+</body>
+</html>

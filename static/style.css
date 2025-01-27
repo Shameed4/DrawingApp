@@ -1,0 +1,24 @@
+body.light-purple-bg {
+    background-color: #f3e5f5; /* Light purple */
+    color: #4a148c; /* Darker purple text */
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    margin-top: 20px;
+}
+
+.countdown-timer {
+    font-size: 2em;
+    margin: 10px auto;
+    text-align: center;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); color: #4a148c; }
+    50% { transform: scale(1.2); color: #7b1fa2; }
+    100% { transform: scale(1); color: #4a148c; }
+}

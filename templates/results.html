@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+      /* Center everything on the page */
+      body.light-purple-bg {
+          text-align: center;
+          margin: 0; 
+          padding: 0;
+      }
+      h1 {
+          margin-top: 20px;
+      }
+      #podiumRow {
+          display: flex;
+          justify-content: center;
+          align-items: flex-end;
+          gap: 50px;
+          margin-top: 40px;
+      }
+      /* For the top3 “podium” images */
+      .podium-item {
+          text-align: center;
+      }
+      /* Larger images for top3 canvases */
+      .first-place-canvas {
+          width: 300px; 
+          background-color: #fff; 
+          margin-bottom: 5px; 
+          cursor: zoom-in;
+      }
+      .second-place-canvas {
+          width: 250px; 
+          background-color: #fff; 
+          margin-bottom: 5px; 
+          cursor: zoom-in;
+      }
+      .third-place-canvas {
+          width: 200px; 
+          background-color: #fff; 
+          margin-bottom: 5px; 
+          cursor: zoom-in;
+      }
+      /* Oval webcam images */
+      .webcam-oval {
+          width: 80px; 
+          height: 80px;
+          background-color: #fff;
+          border-radius: 50%;
+          object-fit: cover;
+          cursor: default;
+          margin-left: 10px;
+      }
+      /* Grid for other submissions */
+      .other-submissions-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 20px;
+          padding: 0 40px;
+          margin-top: 20px;
+      }
+      .other-item {
+          text-align: center;
+      }
+      .other-canvas {
+          width: 150px; 
+          background-color: #fff; 
+          margin-bottom: 5px; 
+          cursor: zoom-in;
+      }
+      .other-webcam {
+          width: 60px; 
+          height: 60px;
+          background-color: #fff;
+          border-radius: 50%;
+          object-fit: cover;
+          cursor: default;
+          margin-left: 6px;
+      }
+      /* Modal overlay for enlarged canvas */
+      #modalOverlay {
+          display: none;
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: rgba(0,0,0,0.7);
+          justify-content: center;
+          align-items: center;
+      }
+      #modalOverlay img {
+          max-width: 80%;
+          max-height: 80%;
+          background-color: #fff;
+          border: 3px solid #000;
+          cursor: zoom-out; /* so user knows to click to close */
+      }
+    </style>
+</head>
+<body class="light-purple-bg" onload="playMusic()">
+    <h1>Leaderboard</h1>
+    <audio id="triumphAudio" src="{{ url_for('static', filename='triumph.mp3') }}"></audio>
+
+    <!-- If no submissions, show a message -->
+    {% if top3|length == 0 %}
+      <p>No submissions found.</p>
+    {% else %}
+      <!-- PODIUM for TOP 3 -->
+      <div id="podiumRow">
+        <!-- 2nd Place (if exists) -->
+        {% if top3|length >= 2 %}
+        <div class="podium-item">
+            <h2 style="margin-bottom:10px;">2nd Place</h2>
+            <div>
+                <img 
+                  src="{{ top3[1]['canvas'] }}" 
+                  alt="2nd place canvas"
+                  class="second-place-canvas"
+                  onclick="openModal('{{ top3[1]['canvas'] }}')">
+                
+                <img 
+                  src="{{ top3[1]['webcam'] }}" 
+                  alt="2nd place webcam"
+                  class="webcam-oval">
+            </div>
+            <p><strong>By:</strong> {{ top3[1]['username'] }}</p>
+            <p><strong>Score:</strong> {{ top3[1]['score'] }}</p>
+        </div>
+        {% endif %}
+
+        <!-- 1st Place -->
+        <div class="podium-item">
+            <h1 style="margin-bottom:10px;">1st Place</h1>
+            <div>
+                <img 
+                  src="{{ top3[0]['canvas'] }}" 
+                  alt="1st place canvas"
+                  class="first-place-canvas"
+                  onclick="openModal('{{ top3[0]['canvas'] }}')">
+                
+                <img 
+                  src="{{ top3[0]['webcam'] }}"
+                  alt="1st place webcam"
+                  class="webcam-oval">
+            </div>
+            <p><strong>By:</strong> {{ top3[0]['username'] }}</p>
+            <p><strong>Score:</strong> {{ top3[0]['score'] }}</p>
+        </div>
+
+        <!-- 3rd Place (if exists) -->
+        {% if top3|length >= 3 %}
+        <div class="podium-item">
+            <h2 style="margin-bottom:10px;">3rd Place</h2>
+            <div>
+                <img 
+                  src="{{ top3[2]['canvas'] }}" 
+                  alt="3rd place canvas"
+                  class="third-place-canvas"
+                  onclick="openModal('{{ top3[2]['canvas'] }}')">
+                
+                <img 
+                  src="{{ top3[2]['webcam'] }}"
+                  alt="3rd place webcam"
+                  class="webcam-oval">
+            </div>
+            <p><strong>By:</strong> {{ top3[2]['username'] }}</p>
+            <p><strong>Score:</strong> {{ top3[2]['score'] }}</p>
+        </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <!-- If "others" is passed and has items, show them in a grid below -->
+    {% if others is defined and others|length > 0 %}
+      <h2 style="margin-top: 60px;">Other Submissions</h2>
+      <div class="other-submissions-grid">
+        {% for row in others %}
+          <div class="other-item">
+            <img 
+              src="{{ row['canvas'] }}" 
+              alt="other canvas"
+              class="other-canvas"
+              onclick="openModal('{{ row['canvas'] }}')">
+            
+            <img 
+              src="{{ row['webcam'] }}" 
+              alt="other webcam"
+              class="other-webcam">
+            
+            <p><strong>By:</strong> {{ row['username'] }}</p>
+            <p><strong>Score:</strong> {{ row['score'] }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Modal for enlarged canvas -->
+    <div id="modalOverlay" onclick="closeModal()">
+        <img id="modalImg" src="#" alt="Enlarged Canvas">
+    </div>
+
+    <script>
+    // Play the triumph music on load
+    function playMusic(){
+        document.getElementById('triumphAudio').play();
+    }
+
+    // Modal logic
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalImg = document.getElementById('modalImg');
+
+    function openModal(imgSrc) {
+        modalImg.src = imgSrc;
+        modalOverlay.style.display = "flex";
+        modalOverlay.style.justifyContent = "center";
+        modalOverlay.style.alignItems = "center";
+    }
+
+    function closeModal() {
+        modalOverlay.style.display = "none";
+        modalImg.src = "#";
+    }
+    </script>
+</body>
+</html>
