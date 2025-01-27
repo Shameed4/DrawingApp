@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Gesture Drawing (Simple)</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -12,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
 </head>
+
 <body class="light-purple-bg" style="margin:0; padding:0; text-align:center;">
     <h1 style="margin-top:20px;">Gesture Drawing (30s)</h1>
     <div id="timer" style="text-align:center; font-size:18px;">Waiting for start...</div>
@@ -19,13 +21,14 @@
     <div style="display:flex; justify-content:center; margin-top:20px;">
         <!-- Mirrored webcam feed on the left -->
         <video id="userVideo" autoplay playsinline
-               style="border:1px solid black; width:320px; height:240px; margin-right:50px; transform: scaleX(-1);">
+            style="border:1px solid black; width:320px; height:240px; margin-right:50px; transform: scaleX(-1);">
         </video>
 
         <!-- White canvas on the right for drawing -->
-        <canvas id="drawCanvas" width="900" height="600"
-                style="border:3px solid #000; background-color:white;">
-        </canvas>
+        <div style="display:flex; position:relative;">
+            <canvas id="drawCanvas" width="900" height="600" style="border:3px solid #000; background-color:white; position:absolute; left:0; top:0;"></canvas>
+            <canvas id="handCanvas" width="900" height="600" style="border:3px solid #000; background-color:transparent; position:absolute; left:0; top:0;"></canvas>
+        </div>
     </div>
 
     <div style="text-align:center; margin-top:20px;">
@@ -33,246 +36,263 @@
     </div>
 
     <script>
-    /************************************************************
-     * 1) SOCKET.IO - Timer & Submission
-     ************************************************************/
-    const socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+        /************************************************************
+         * 1) SOCKET.IO - Timer & Submission
+         ************************************************************/
+        const socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 
-    let drawingActive = false;
-    let timeLeft = 0;
-    let timerInterval = null;
+        let drawingActive = false;
+        let timeLeft = 0;
+        let timerInterval = null;
 
-    socket.on('startDrawing', (data) => {
-        timeLeft = data.duration || 30;
-        drawingActive = true;
-        startTimer();
-    });
-
-    socket.on('startVoting', () => {
-        if (drawingActive) {
-            endDrawingAndSubmit();
-        }
-        window.location.href = "/voting";
-    });
-
-    socket.on('endVoting', () => {
-        window.location.href = "/results";
-    });
-
-    function startTimer() {
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                document.getElementById('timer').innerText = "Time's up!";
-                drawingActive = false;
-                endDrawingAndSubmit();
-                return;
-            }
-            document.getElementById('timer').innerText = "Time Left: " + timeLeft;
-            timeLeft--;
-        }, 1000);
-    }
-
-    /************************************************************
-     * 2) VIDEO STREAM
-     ************************************************************/
-    const videoElement = document.getElementById('userVideo');
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-            videoElement.srcObject = stream;
-        })
-        .catch(err => {
-            console.error("Camera error:", err);
+        socket.on('startDrawing', (data) => {
+            timeLeft = data.duration || 30;
+            drawingActive = true;
+            startTimer();
         });
 
-    /************************************************************
-     * 3) CANVAS & DRAWING CONTEXT
-     ************************************************************/
-    const canvasElement = document.getElementById('drawCanvas');
-    const canvasCtx = canvasElement.getContext('2d');
-    let brushColor = 'black';
-    let brushSize = 5;
-    let prevX = null, prevY = null;
+        socket.on('startVoting', () => {
+            if (drawingActive) {
+                endDrawingAndSubmit();
+            }
+            window.location.href = "/voting";
+        });
 
-    clearCanvas();
+        socket.on('endVoting', () => {
+            window.location.href = "/results";
+        });
 
-    // Initialize Canvas
-    function clearCanvas() {
-        canvasCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
-        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        canvasCtx.fillStyle = "white";
-        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-
-        // Flip the canvas horizontally to match the mirrored video
-        canvasCtx.translate(canvasElement.width, 0);
-        canvasCtx.scale(-1, 1);
-        prevX = null;
-        prevY = null;
-    }
-
-
-    /************************************************************
-     * 4) MEDIAPIPE HANDS
-     ************************************************************/
-    const hands = new Hands({
-        locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
-    hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.7
-    });
-    hands.onResults(onResults);
-
-    const camera = new Camera(videoElement, {
-        onFrame: async () => {
-            await hands.send({ image: videoElement });
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('timer').innerText = "Time's up!";
+                    drawingActive = false;
+                    endDrawingAndSubmit();
+                    return;
+                }
+                document.getElementById('timer').innerText = "Time Left: " + timeLeft;
+                timeLeft--;
+            }, 1000);
         }
-    });
-    camera.start();
 
-    /************************************************************
-     * 5) On Each Frame - Check if we draw
-     ************************************************************/
-    function onResults(results) {
-        if (!drawingActive || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-            prevX = null;
-            prevY = null;
-            return;
-        }
-        // Clear the canvas for the current frame
-        // clearCanvas();
+        /************************************************************
+         * 2) VIDEO STREAM
+         ************************************************************/
+        const videoElement = document.getElementById('userVideo');
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                videoElement.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Camera error:", err);
+            });
 
-        // Get the landmarks for the first detected hand
-        const landmarks = results.multiHandLandmarks[0];
+        /************************************************************
+         * 3) CANVAS & DRAWING CONTEXT
+         ************************************************************/
+        const canvasElement = document.getElementById('drawCanvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const handCanvasElement = document.getElementById('handCanvas');
+        const handCanvasCtx = handCanvasElement.getContext('2d');
+        let brushColor = 'black';
+        let brushSize = 5;
+        let prevX = null, prevY = null;
 
-        // Draw the hand skeleton on the canvas
-        // drawHandSkeleton(landmarks);
+        clearCanvas();
 
-        const extendedFingers = detectExtendedFingers(landmarks);
-        // Draw the hand skeleton on the canvas
-        if (extendedFingers.includes(1) && extendedFingers.length === 1) {
-            drawWithIndex(landmarks[8]);
-        } else {
+        // Initialize Canvas
+        function clearCanvas() {
+            console.log("Clearing canvas");
+            canvasCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.fillStyle = "white";
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+
+            // Flip the canvas horizontally to match the mirrored video
+            canvasCtx.translate(canvasElement.width, 0);
+            canvasCtx.scale(-1, 1);
             prevX = null;
             prevY = null;
         }
-    }
 
-    function drawHandSkeleton(landmarks) {
-        // Use Mediapipe's hand connections
-        const connections = [
-            [0, 1], [1, 2], [2, 3], [3, 4],      // Thumb
-            [0, 5], [5, 6], [6, 7], [7, 8],      // Index finger
-            [5, 9], [9, 10], [10, 11], [11, 12], // Middle finger
-            [9, 13], [13, 14], [14, 15], [15, 16], // Ring finger
-            [13, 17], [0, 17], [17, 18], [18, 19], [19, 20] // Pinky
-        ];
 
-        // Draw connections (blue lines)
-        canvasCtx.strokeStyle = "blue";
-        canvasCtx.lineWidth = 2;
+        function clearHandCanvas() {
+            console.log("Clearing hand canvas");
+            handCanvasCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
+            handCanvasCtx.clearRect(0, 0, handCanvasElement.width, handCanvasElement.height);
+            handCanvasCtx.fillStyle = "transparent";
+            handCanvasCtx.fillRect(0, 0, handCanvasElement.width, handCanvasElement.height);
 
-        for (let [startIdx, endIdx] of connections) {
-            const start = landmarks[startIdx];
-            const end = landmarks[endIdx];
+            // Flip the canvas horizontally to match the mirrored video
+            handCanvasCtx.translate(handCanvasElement.width, 0);
+            handCanvasCtx.scale(-1, 1);
+        }
 
-            // Transform coordinates to canvas space, flip x-axis for horizontal reflection
-            const startX = start.x * canvasElement.width; // Normal x
-            const startY = start.y * canvasElement.height;
-            const endX = end.x * canvasElement.width; // Normal x
-            const endY = end.y * canvasElement.height;
 
+        /************************************************************
+         * 4) MEDIAPIPE HANDS
+         ************************************************************/
+        const hands = new Hands({
+            locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+        hands.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            }
+        });
+        camera.start();
+
+        /************************************************************
+         * 5) On Each Frame - Check if we draw
+         ************************************************************/
+        function onResults(results) {
+            if (!drawingActive || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                prevX = null;
+                prevY = null;
+                return;
+            }
+            // Clear the canvas for the current frame
+            clearHandCanvas();
+
+            // Get the landmarks for the first detected hand
+            const landmarks = results.multiHandLandmarks[0];
+
+            // Draw the hand skeleton on the canvas
+            drawHandSkeleton(landmarks);
+
+            const extendedFingers = detectExtendedFingers(landmarks);
+            // Draw the hand skeleton on the canvas
+            if (extendedFingers.includes(1) && extendedFingers.length === 1) {
+                drawWithIndex(landmarks[8]);
+            } else {
+                prevX = null;
+                prevY = null;
+            }
+        }
+
+        function drawHandSkeleton(landmarks) {
+            // Use Mediapipe's hand connections
+            const connections = [
+                [0, 1], [1, 2], [2, 3], [3, 4],      // Thumb
+                [0, 5], [5, 6], [6, 7], [7, 8],      // Index finger
+                [5, 9], [9, 10], [10, 11], [11, 12], // Middle finger
+                [9, 13], [13, 14], [14, 15], [15, 16], // Ring finger
+                [13, 17], [0, 17], [17, 18], [18, 19], [19, 20] // Pinky
+            ];
+
+            // Draw connections (blue lines)
+            handCanvasCtx.strokeStyle = "blue";
+            handCanvasCtx.lineWidth = 2;
+
+            for (let [startIdx, endIdx] of connections) {
+                const start = landmarks[startIdx];
+                const end = landmarks[endIdx];
+
+                // Transform coordinates to canvas space, flip x-axis for horizontal reflection
+                const startX = start.x * canvasElement.width; // Normal x
+                const startY = start.y * canvasElement.height;
+                const endX = end.x * canvasElement.width; // Normal x
+                const endY = end.y * canvasElement.height;
+
+                handCanvasCtx.beginPath();
+                handCanvasCtx.moveTo(startX, startY);
+                handCanvasCtx.lineTo(endX, endY);
+                handCanvasCtx.stroke();
+            }
+
+            // Draw landmarks (red circles)
+            handCanvasCtx.fillStyle = "red";
+            for (let point of landmarks) {
+                const x = point.x * canvasElement.width; // Normal x
+                const y = point.y * canvasElement.height;
+
+                handCanvasCtx.beginPath();
+                handCanvasCtx.arc(x, y, 5, 0, 2 * Math.PI); // Radius 5
+                handCanvasCtx.fill();
+            }
+        }
+
+
+
+        function drawWithIndex(indexTip) {
+            // Transform the x-coordinate for the flipped canvas
+            const x = indexTip.x * canvasElement.width;
+            const y = indexTip.y * canvasElement.height;
+
+            if (prevX == null || prevY == null) {
+                prevX = x;
+                prevY = y;
+            }
+
+            // Draw on the flipped canvas
+            canvasCtx.strokeStyle = brushColor;
+            canvasCtx.lineWidth = brushSize;
+            canvasCtx.lineCap = 'round';
             canvasCtx.beginPath();
-            canvasCtx.moveTo(startX, startY);
-            canvasCtx.lineTo(endX, endY);
+            canvasCtx.moveTo(prevX, prevY);
+            canvasCtx.lineTo(x, y);
             canvasCtx.stroke();
-        }
 
-        // Draw landmarks (red circles)
-        canvasCtx.fillStyle = "red";
-        for (let point of landmarks) {
-            const x = point.x * canvasElement.width; // Normal x
-            const y = point.y * canvasElement.height;
-
-            canvasCtx.beginPath();
-            canvasCtx.arc(x, y, 5, 0, 2 * Math.PI); // Radius 5
-            canvasCtx.fill();
-        }
-    }
-
-
-
-    function drawWithIndex(indexTip) {
-        // Transform the x-coordinate for the flipped canvas
-        const x = indexTip.x * canvasElement.width;
-        const y = indexTip.y * canvasElement.height;
-
-        if (prevX == null || prevY == null) {
             prevX = x;
             prevY = y;
         }
 
-        // Draw on the flipped canvas
-        canvasCtx.strokeStyle = brushColor;
-        canvasCtx.lineWidth = brushSize;
-        canvasCtx.lineCap = 'round';
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(prevX, prevY);
-        canvasCtx.lineTo(x, y);
-        canvasCtx.stroke();
 
-        prevX = x;
-        prevY = y;
-    }
+        function detectExtendedFingers(landmarks) {
+            let extended = [];
+            if (landmarks[8].y < landmarks[6].y) extended.push(1);
+            if (landmarks[12].y < landmarks[10].y) extended.push(2);
+            if (landmarks[16].y < landmarks[14].y) extended.push(3);
+            if (landmarks[20].y < landmarks[18].y) extended.push(4);
+            return extended;
+        }
 
+        /************************************************************
+         * 6) End Drawing & Submit
+         ************************************************************/
+        function endDrawingAndSubmit() {
+            drawingActive = false;
 
-    function detectExtendedFingers(landmarks) {
-        let extended = [];
-        if (landmarks[8].y  < landmarks[6].y)  extended.push(1);
-        if (landmarks[12].y < landmarks[10].y) extended.push(2);
-        if (landmarks[16].y < landmarks[14].y) extended.push(3);
-        if (landmarks[20].y < landmarks[18].y) extended.push(4);
-        return extended;
-    }
+            // 1) Convert final canvas to base64
+            const canvasData = canvasElement.toDataURL('image/png');
 
-    /************************************************************
-     * 6) End Drawing & Submit
-     ************************************************************/
-    function endDrawingAndSubmit() {
-        drawingActive = false;
+            // 2) Also capture a snapshot from the mirrored webcam
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = videoElement.videoWidth;
+            tempCanvas.height = videoElement.videoHeight;
+            const tempCtx = tempCanvas.getContext('2d');
 
-        // 1) Convert final canvas to base64
-        const canvasData = canvasElement.toDataURL('image/png');
+            // Flip context horizontally before drawing video to keep mirror effect
+            tempCtx.translate(tempCanvas.width, 0);
+            tempCtx.scale(-1, 1);
+            tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
 
-        // 2) Also capture a snapshot from the mirrored webcam
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = videoElement.videoWidth;
-        tempCanvas.height = videoElement.videoHeight;
-        const tempCtx = tempCanvas.getContext('2d');
+            const webcamData = tempCanvas.toDataURL('image/png');
 
-        // Flip context horizontally before drawing video to keep mirror effect
-        tempCtx.translate(tempCanvas.width, 0);
-        tempCtx.scale(-1, 1);
-        tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
-
-        const webcamData = tempCanvas.toDataURL('image/png');
-
-        // 3) POST to /submit_drawing
-        fetch("/submit_drawing", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ canvas: canvasData, webcam: webcamData })
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log("Submitted drawing:", data);
-            document.getElementById('timer').innerText = "Submitted. Waiting...";
-        })
-        .catch(err => console.error(err));
-    }
+            // 3) POST to /submit_drawing
+            fetch("/submit_drawing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ canvas: canvasData, webcam: webcamData })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Submitted drawing:", data);
+                    document.getElementById('timer').innerText = "Submitted. Waiting...";
+                })
+                .catch(err => console.error(err));
+        }
     </script>
 </body>
+
 </html>
