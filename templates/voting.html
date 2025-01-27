@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voting (10s)</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+
+    <style>
+      /* Center the entire page content */
+      body.light-purple-bg {
+          text-align: center; 
+          margin: 0;
+          padding: 0;
+      }
+      h1 {
+          margin-top: 20px;
+      }
+      /* Timer styling */
+      #voteTimer {
+          margin-bottom: 10px;
+      }
+      /* The container that holds the submission image + rating bar */
+      #submissionContainer {
+          display: inline-block; /* so it can be centered by body’s text-align */
+          border: 1px solid #000;
+          padding: 20px;
+          background-color: #fff; /* ensures white behind the PNG */
+      }
+      #submissionContainer img {
+          cursor: zoom-in; /* indicate clickable to enlarge */
+          background-color: #fff;
+      }
+      .rating-bar {
+          margin-top: 15px;
+      }
+      .rateOption {
+          display: inline-block;
+          margin: 0 6px;
+          padding: 8px 14px;
+          background-color: #ff5722; /* Contrasting orange */
+          color: #fff;
+          cursor: pointer;
+          border-radius: 4px;
+          font-weight: bold;
+      }
+      .rateOption:hover {
+          background-color: #ff8a50; /* lighter orange on hover */
+      }
+      /* Highlight for selected rating */
+      .selected {
+          background-color: #00c853 !important; /* bright green highlight */
+      }
+      /* Prev/Next Buttons */
+      .nav-buttons {
+          margin-top: 20px;
+      }
+      .nav-buttons button {
+          margin: 0 10px;
+          padding: 8px 16px;
+          font-size: 16px;
+          cursor: pointer;
+          border-radius: 4px;
+      }
+      /* Modal for enlarged image */
+      #modalOverlay {
+          display: none; 
+          position: fixed; 
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: rgba(0,0,0,0.7);
+          justify-content: center; 
+          align-items: center;
+      }
+      #modalOverlay img {
+          max-width: 80%;
+          max-height: 80%;
+          background-color: #fff;
+          border: 3px solid #000;
+          cursor: zoom-out; /* indicate click to close */
+      }
+    </style>
+</head>
+
+<body class="light-purple-bg">
+    <h1>Voting (10s)</h1>
+    <div id="voteTimer" class="countdown-timer">Waiting for voting...</div>
+
+    <!-- Submission container -->
+    <div id="submissionContainer"></div>
+
+    <!-- Prev/Next -->
+    <div class="nav-buttons">
+        <button onclick="prevSubmission()">Prev</button>
+        <button onclick="nextSubmission()">Next</button>
+    </div>
+
+    <!-- Modal for enlarged image -->
+    <div id="modalOverlay" onclick="closeModal()">
+        <img id="modalImg" src="#" alt="Enlarged canvas">
+    </div>
+
+    <script>
+    /* ------------------------------------------------------------------
+       1) SOCKET.IO & TIMER LOGIC
+    ------------------------------------------------------------------ */
+    var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+
+    let votingActive = false;
+    let votingTimeLeft = 0;
+    let votingInterval = null;
+
+    // Start voting event => start local timer
+    socket.on('startVoting', (data) => {
+        votingActive = true;
+        votingTimeLeft = data.duration; // e.g., 10
+        startVotingTimer();
+    });
+
+    // End voting => finalize ratings then go to results
+    socket.on('endVoting', () => {
+        finalizeAllRatings(() => {
+            window.location.href = "/results";
+        });
+    });
+
+    function startVotingTimer() {
+        if (votingInterval) clearInterval(votingInterval);
+        votingInterval = setInterval(() => {
+            if (votingTimeLeft <= 0) {
+                clearInterval(votingInterval);
+                document.getElementById('voteTimer').innerText = "Voting ended!";
+                votingActive = false;
+                // Finalize all ratings
+                finalizeAllRatings(() => {
+                    window.location.href = "/results";
+                });
+                return;
+            }
+            document.getElementById('voteTimer').innerText = "Voting time left: " + votingTimeLeft;
+            votingTimeLeft--;
+        }, 1000);
+    }
+
+    /* ------------------------------------------------------------------
+       2) SUBMISSIONS & FRONT-END RATING STORAGE
+    ------------------------------------------------------------------ */
+    // Provided from the server. Example: [ {id:1, canvas:'data:image/png...', webcam:'...', score:0}, ... ]
+    let submissions = {{ submissions|tojson|safe }};
+    let currentIndex = 0;
+
+    // We'll store the user’s chosen ratings, e.g. { "1": 3, "2": 5 }
+    let userRatings = {};
+
+    const container = document.getElementById('submissionContainer');
+
+    function showSubmission(index) {
+        if (index < 0 || index >= submissions.length) return;
+        let sub = submissions[index];
+        let subId = sub.id;
+
+        // Build the HTML for the submission's canvas + rating bar
+        container.innerHTML = `
+            <div>
+                <img id="votingCanvas" src="${sub.canvas}" style="max-width:400px; background-color:#fff;">
+            </div>
+            <div class="rating-bar">
+                <span class="rateOption" data-value="1">1</span>
+                <span class="rateOption" data-value="2">2</span>
+                <span class="rateOption" data-value="3">3</span>
+                <span class="rateOption" data-value="4">4</span>
+                <span class="rateOption" data-value="5">5</span>
+            </div>
+        `;
+
+        // If this submission was previously rated, highlight
+        if (userRatings[subId]) {
+            let chosenVal = userRatings[subId];
+            highlightRating(subId, chosenVal);
+        }
+
+        // Add click handlers for rating
+        container.querySelectorAll('.rateOption').forEach(opt => {
+            opt.addEventListener('click', () => {
+                let ratingVal = opt.dataset.value;
+                // The user can change rating at any time
+                userRatings[subId] = ratingVal;
+                highlightRating(subId, ratingVal);
+            });
+        });
+
+        // Make the canvas image enlargeable
+        const canvasImg = document.getElementById('votingCanvas');
+        canvasImg.addEventListener('click', () => {
+            openModal(sub.canvas);
+        });
+    }
+
+    function prevSubmission(){
+        currentIndex--;
+        if (currentIndex < 0) currentIndex = 0;
+        showSubmission(currentIndex);
+    }
+
+    function nextSubmission(){
+        currentIndex++;
+        if (currentIndex >= submissions.length) currentIndex = submissions.length - 1;
+        showSubmission(currentIndex);
+    }
+
+    // On page load, if we have data
+    if (submissions.length > 0) {
+        showSubmission(0);
+    } else {
+        container.innerHTML = "<p>No submissions yet.</p>";
+    }
+
+    // Highlight the chosen rating in the DOM
+    function highlightRating(subId, ratingVal) {
+        const rateOptions = container.querySelectorAll('.rateOption');
+        rateOptions.forEach(opt => {
+            if (opt.dataset.value === ratingVal) {
+                opt.classList.add('selected'); 
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+    }
+
+    /* ------------------------------------------------------------------
+       3) FINALIZE RATINGS (Send to Server)
+    ------------------------------------------------------------------ */
+    function finalizeAllRatings(callback) {
+        // callback is optional (e.g. a function to run after finalizing)
+        // Build a single object with all final ratings
+        // Example: { "1": 3, "2": 5 }
+        let finalData = userRatings; 
+        console.log("Final ratings to send:", finalData);
+
+        fetch("/finalize_ratings", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(finalData)
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log("Ratings submitted:", data);
+            if (callback) callback();
+        })
+        .catch(err => {
+            console.error(err);
+            if (callback) callback();
+        });
+    }
+
+    /* ------------------------------------------------------------------
+       4) MODAL FOR ENLARGING CANVAS
+    ------------------------------------------------------------------ */
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalImg = document.getElementById('modalImg');
+
+    function openModal(imgSrc) {
+        modalImg.src = imgSrc;
+        modalOverlay.style.display = "flex";
+        modalOverlay.style.justifyContent = "center";
+        modalOverlay.style.alignItems = "center";
+    }
+
+    function closeModal() {
+        modalOverlay.style.display = "none";
+        modalImg.src = "#";
+    }
+    </script>
+</body>
+</html>
