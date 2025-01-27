@@ -84,14 +84,24 @@ def login():
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username = ?", (username,))
     user = c.fetchone()
-    conn.close()
 
-    if user and check_password_hash(user['password'], password):
-        session['username'] = user['username']
-        session['is_admin'] = bool(user['is_admin'])
-        return redirect(url_for('drawing'))
+    if user:
+        if check_password_hash(user['password'], password):
+            session['username'] = user['username']
+            session['is_admin'] = bool(user['is_admin'])
+            conn.close()
+            return redirect(url_for('drawing'))
+        else:
+            conn.close()
+            return "Invalid credentials", 401
     else:
-        return "Invalid credentials", 401
+        hashed_password = generate_password_hash(password)
+        c.execute("INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)", (username, hashed_password, False))
+        conn.commit()
+        session['username'] = username
+        session['is_admin'] = False
+        conn.close()
+        return redirect(url_for('drawing'))
 
 @app.route("/logout")
 def logout():
