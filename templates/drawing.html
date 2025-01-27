@@ -143,13 +143,13 @@
             return;
         }
         // Clear the canvas for the current frame
-        clearCanvas();
+        // clearCanvas();
 
         // Get the landmarks for the first detected hand
         const landmarks = results.multiHandLandmarks[0];
 
         // Draw the hand skeleton on the canvas
-        drawHandSkeleton(landmarks);
+        // drawHandSkeleton(landmarks);
 
         const extendedFingers = detectExtendedFingers(landmarks);
         // Draw the hand skeleton on the canvas
