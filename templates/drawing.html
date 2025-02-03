@@ -185,6 +185,7 @@
             drawHandSkeleton(landmarks);
 
             const extendedFingers = detectExtendedFingers(landmarks);
+            // Draw the hand skeleton on the canvas
             if (extendedFingers.includes(1) && extendedFingers.length === 1) {
                 drawWithIndex(landmarks[8]);
             } else {
@@ -243,9 +244,11 @@
         }
 
         function drawWithIndex(indexTip) {
+            // Transform the x-coordinate for the flipped canvas
             const x = indexTip.x * canvasElement.width;
             const y = indexTip.y * canvasElement.height;
             brushColor = getColor(x, y);
+
             if (x <= paletteX) {
                 prevX = null;
                 prevY = null;
