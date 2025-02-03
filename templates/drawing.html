@@ -194,21 +194,7 @@
             }
             // Clear the canvas for the current frame
             clearHandCanvas();
-
-            // Get the landmarks for the first detected hand
-            const landmarks = results.multiHandLandmarks[0];
-
-            // Draw the hand skeleton on the canvas
-            drawHandSkeleton(landmarks);
-
-            const extendedFingers = detectExtendedFingers(landmarks);
-            // Draw the hand skeleton on the canvas
-            if (extendedFingers.includes(1) && extendedFingers.length === 1) {
-                drawWithIndex(landmarks[8]);
-            } else {
-                prevX = null;
-                prevY = null;
-            }
+            drawWithIndex(results);
         }
 
         function drawHandSkeleton(landmarks) {
@@ -267,12 +253,27 @@
             return brushColor;
         }
 
-        function drawWithIndex(indexTip) {
-            // Transform the x-coordinate for the flipped canvas
+        function drawWithIndex(results) {
+            // Get the landmarks for the first detected hand
+            console.log("Draw with index")
+            const landmarks = results.multiHandLandmarks[0];
+
+            // Draw the hand skeleton on the canvas
+            drawHandSkeleton(landmarks);
+
+            const extendedFingers = detectExtendedFingers(landmarks);
+
+            const indexTip = landmarks[8]
             const x = indexTip.x * canvasElement.width;
             const y = indexTip.y * canvasElement.height;
-
             brushColor = getColor(x, y);
+
+            // Draw the hand skeleton on the canvas
+            if (!(extendedFingers.includes(1) && extendedFingers.length === 1)) {
+                prevX = null;
+                prevY = null;
+                return;
+            }
 
             if (x <= paletteX) {
                 prevX = null;
