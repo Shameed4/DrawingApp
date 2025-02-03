@@ -19,5 +19,20 @@
     <form action="{{ url_for('end_voting') }}" method="POST">
         <button type="submit">End Voting & Show Results</button>
     </form>
+
+    <h2>Select Theme</h2>
+    <form action="{{ url_for('set_theme', theme='barbenheimer') }}" method="POST" style="display:inline;">
+        <button type="submit">Barbenheimer</button>
+    </form>
+    <form action="{{ url_for('set_theme', theme='fooood') }}" method="POST" style="display:inline;">
+        <button type="submit">Fooood</button>
+    </form>
+    <form action="{{ url_for('set_theme', theme='brainrot') }}" method="POST" style="display:inline;">
+        <button type="submit">Brain Rot</button>
+    </form>
+    <form action="{{ url_for('set_theme', theme='wolfie') }}" method="POST" style="display:inline;">
+        <button type="submit">Wolfie</button>
+    </form>
+    
 </body>
 </html>

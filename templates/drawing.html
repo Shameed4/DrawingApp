@@ -79,6 +79,9 @@
             }, 1000);
         }
 
+        // Use the theme colors passed from Flask
+        const colors = JSON.parse('{{ theme_colors|tojson|safe }}');
+
         /************************************************************
          * 2) VIDEO STREAM
          ************************************************************/
@@ -102,23 +105,6 @@
         let brushColor = 'black';
         let brushSize = 5;
         let prevX = null, prevY = null;
-        const colors = [
-            "#E0218A", // Barbie Pink
-            "#FF99CC", // Soft Pink
-            "#FFD1DC", // Pastel Pink
-            "#D81B60", // Hot Pink
-            "#FF5733", // Explosive Orange
-            "#FFC300", // Fiery Yellow
-            "#D98880", // Muted Red
-            "#C70039", // Deep Crimson
-            "#900C3F", // Nuclear Magenta
-            "#581845", // Dark Purple
-            "#2C3E50", // Midnight Blue
-            "#A93226", // Ember Red
-            "#F4A261", // Burnt Peach
-            "#1C1C1C", // Charcoal Black
-            "#F5F5F5"  // Ash White
-        ];
 
         const colorHeight = 600 / colors.length;
 
@@ -140,7 +126,6 @@
             prevY = null;
         }
 
-
         function clearHandCanvas() {
             handCanvasCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transformations
             handCanvasCtx.clearRect(0, 0, handCanvasElement.width, handCanvasElement.height);
@@ -155,12 +140,10 @@
             colors.forEach((color, i) => {
                 handCanvasCtx.fillStyle = color;
                 handCanvasCtx.fillRect(0, i * colorHeight, paletteX, colorHeight);
-            })
-
+            });
             handCanvasCtx.fillStyle = "black";
-            handCanvasCtx.fillRect(paletteX - 2, 0, 2, 600)
+            handCanvasCtx.fillRect(paletteX - 2, 0, 2, 600);
         }
-
 
         /************************************************************
          * 4) MEDIAPIPE HANDS
@@ -202,7 +185,6 @@
             drawHandSkeleton(landmarks);
 
             const extendedFingers = detectExtendedFingers(landmarks);
-            // Draw the hand skeleton on the canvas
             if (extendedFingers.includes(1) && extendedFingers.length === 1) {
                 drawWithIndex(landmarks[8]);
             } else {
@@ -212,27 +194,24 @@
         }
 
         function drawHandSkeleton(landmarks) {
-            // Use Mediapipe's hand connections
+            // Define connections based on Mediapipe hands model
             const connections = [
-                [0, 1], [1, 2], [2, 3], [3, 4],      // Thumb
-                [0, 5], [5, 6], [6, 7], [7, 8],      // Index finger
-                [5, 9], [9, 10], [10, 11], [11, 12], // Middle finger
-                [9, 13], [13, 14], [14, 15], [15, 16], // Ring finger
+                [0, 1], [1, 2], [2, 3], [3, 4],         // Thumb
+                [0, 5], [5, 6], [6, 7], [7, 8],         // Index finger
+                [5, 9], [9, 10], [10, 11], [11, 12],     // Middle finger
+                [9, 13], [13, 14], [14, 15], [15, 16],    // Ring finger
                 [13, 17], [0, 17], [17, 18], [18, 19], [19, 20] // Pinky
             ];
 
-            // Draw connections (blue lines)
+            // Draw connections
             handCanvasCtx.strokeStyle = "blue";
             handCanvasCtx.lineWidth = 2;
-
             for (let [startIdx, endIdx] of connections) {
                 const start = landmarks[startIdx];
                 const end = landmarks[endIdx];
-
-                // Transform coordinates to canvas space, flip x-axis for horizontal reflection
-                const startX = start.x * canvasElement.width; // Normal x
+                const startX = start.x * canvasElement.width;
                 const startY = start.y * canvasElement.height;
-                const endX = end.x * canvasElement.width; // Normal x
+                const endX = end.x * canvasElement.width;
                 const endY = end.y * canvasElement.height;
 
                 handCanvasCtx.beginPath();
@@ -241,26 +220,22 @@
                 handCanvasCtx.stroke();
             }
 
-            // Draw landmarks (red circles)
+            // Draw landmarks
             handCanvasCtx.fillStyle = "red";
             for (let point of landmarks) {
-                const x = point.x * canvasElement.width; // Normal x
+                const x = point.x * canvasElement.width;
                 const y = point.y * canvasElement.height;
-
                 handCanvasCtx.beginPath();
-                handCanvasCtx.arc(x, y, 5, 0, 2 * Math.PI); // Radius 5
+                handCanvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
                 handCanvasCtx.fill();
             }
         }
 
         function getColor(x, y) {
-            if (x > paletteX)
-                return brushColor;
-
+            if (x > paletteX) return brushColor;
             for (let i = 0; i < colors.length; i++) {
                 const color = colors[i];
                 const start = i * colorHeight;
-                // console.log($``)
                 if (start <= y && y <= start + colorHeight)
                     return color;
             }
@@ -268,24 +243,18 @@
         }
 
         function drawWithIndex(indexTip) {
-            // Transform the x-coordinate for the flipped canvas
             const x = indexTip.x * canvasElement.width;
             const y = indexTip.y * canvasElement.height;
-
             brushColor = getColor(x, y);
-
             if (x <= paletteX) {
                 prevX = null;
                 prevY = null;
                 return;
             }
-
             if (prevX == null || prevY == null) {
                 prevX = x;
                 prevY = y;
             }
-
-            // Draw on the flipped canvas
             canvasCtx.strokeStyle = brushColor;
             canvasCtx.lineWidth = brushSize;
             canvasCtx.lineCap = 'round';
@@ -293,11 +262,9 @@
             canvasCtx.moveTo(prevX, prevY);
             canvasCtx.lineTo(x, y);
             canvasCtx.stroke();
-
             prevX = x;
             prevY = y;
         }
-
 
         function detectExtendedFingers(landmarks) {
             let extended = [];
@@ -313,24 +280,19 @@
          ************************************************************/
         function endDrawingAndSubmit() {
             drawingActive = false;
-
-            // 1) Convert final canvas to base64
+            // Convert final canvas to base64 image
             const canvasData = canvasElement.toDataURL('image/png');
-
-            // 2) Also capture a snapshot from the mirrored webcam
+            // Capture a snapshot from the mirrored webcam
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = videoElement.videoWidth;
             tempCanvas.height = videoElement.videoHeight;
             const tempCtx = tempCanvas.getContext('2d');
-
-            // Flip context horizontally before drawing video to keep mirror effect
             tempCtx.translate(tempCanvas.width, 0);
             tempCtx.scale(-1, 1);
             tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
-
             const webcamData = tempCanvas.toDataURL('image/png');
 
-            // 3) POST to /submit_drawing
+            // Submit drawing data via POST
             fetch("/submit_drawing", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

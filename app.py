@@ -15,17 +15,43 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 DB_FILE = 'database.db'
 
-# Global state for the game
-GAME_STATE = {
-    'in_progress': False,      # Are we in the 30s drawing period?
-    'voting_in_progress': False, # Are we in the 10s voting period?
-    'round_start_time': None,
-    'round_duration': 600,      # 30 seconds
-    'voting_start_time': None,
-    'voting_duration': 600,     # 10 seconds
-    'round_has_ended': False,
-    'voting_has_ended': False
+# Add theme definitions
+THEMES = {
+    "barbenheimer": [
+        "#E0218A", "#FF99CC", "#FFD1DC", "#D81B60", "#FF5733", "#FFC300",
+        "#D98880", "#C70039", "#900C3F", "#581845", "#2C3E50", "#A93226",
+        "#F4A261", "#1C1C1C", "#F5F5F5"
+    ],
+    "fooood": [
+        "#FF6B35", "#FFB400", "#F8E16C", "#C41E3A", "#8D4004", "#FFDAB9",
+        "#A6C36F", "#D1C4E9", "#F4A460", "#6B4226", "#D32F2F", "#9CCC65",
+        "#C0C0C0", "#F5DEB3", "#D7A86E"
+    ],
+    "brainrot": [
+        "#FF00FF", "#00FFFF", "#FFFF00", "#FF4500", "#800080", "#00FF00",
+        "#FF1493", "#8A2BE2", "#2E2B5F", "#D3D3D3", "#6A5ACD", "#C71585",
+        "#FF6347", "#A52A2A", "#333333"
+    ],
+    "wolfie": [
+        "#C8102E", "#041E42", "#8B0000", "#DC143C", "#A52A2A", "#808080",
+        "#1C1C1C", "#D3D3D3", "#4B0082", "#B22222", "#2E8B57", "#FFD700",
+        "#708090", "#696969", "#F4A460"
+    ]
 }
+
+# Update GAME_STATE with a current_theme property
+GAME_STATE = {
+    'in_progress': False,
+    'voting_in_progress': False,
+    'round_start_time': None,
+    'round_duration': 600,
+    'voting_start_time': None,
+    'voting_duration': 600,
+    'round_has_ended': False,
+    'voting_has_ended': False,
+    'theme_colors': THEMES["barbenheimer"]
+}
+
 
 def get_db_connection():
     conn = sqlite3.connect(DB_FILE)
@@ -195,16 +221,22 @@ def end_voting():
 
     return redirect(url_for('results'))
 
+@app.route("/set_theme/<theme>", methods=['POST'])
+def set_theme(theme):
+    if not session.get('is_admin'):
+        return "Unauthorized", 403
+    if theme not in THEMES:
+        return "Theme not found", 404
+    GAME_STATE['theme_colors'] = THEMES[theme]
+    return redirect(url_for('admin_dashboard'))
+
 @app.route("/drawing")
 def drawing():
-    # Only logged in users
     if 'username' not in session:
         return redirect(url_for('home'))
-    # If the round has ended, maybe go to waiting page or ...
     if GAME_STATE['round_has_ended']:
         return "Drawing round ended. Please wait for voting or refresh."
-    return render_template("drawing.html", 
-                           game_state=GAME_STATE)
+    return render_template("drawing.html", game_state=GAME_STATE, theme_colors=GAME_STATE['theme_colors'])
 
 @app.route("/submit_drawing", methods=['POST'])
 def submit_drawing():
