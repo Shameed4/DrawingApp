@@ -9,11 +9,11 @@
     <p>Welcome, {{ session['username'] }}!</p>
 
     <form action="{{ url_for('start_game') }}" method="POST">
-        <button type="submit">Start 30s Drawing</button>
+        <button type="submit">Start 10m Drawing</button>
     </form>
 
     <form action="{{ url_for('start_voting') }}" method="POST">
-        <button type="submit">Start 10s Voting</button>
+        <button type="submit">Start 10m Voting (Click twice to start voting)</button>
     </form>
 
     <form action="{{ url_for('end_voting') }}" method="POST">
