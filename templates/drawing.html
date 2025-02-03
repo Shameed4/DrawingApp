@@ -15,7 +15,7 @@
 </head>
 
 <body class="light-purple-bg" style="margin:0; padding:0; text-align:center;">
-    <h1 style="margin-top:20px;">Gesture Drawing (30s)</h1>
+    <h1 style="margin-top:20px;">Gesture Drawing (10 minutes)</h1>
     <div id="timer" style="text-align:center; font-size:18px;">Waiting for start...</div>
 
     <div style="display:flex; justify-content:center; margin-top:20px;">
@@ -46,7 +46,7 @@
         let timerInterval = null;
 
         socket.on('startDrawing', (data) => {
-            timeLeft = data.duration || 30;
+            timeLeft = data.duration || 600; // 10 minutes
             drawingActive = true;
             startTimer();
         });
