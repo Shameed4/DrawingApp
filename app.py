@@ -20,9 +20,9 @@ GAME_STATE = {
     'in_progress': False,      # Are we in the 30s drawing period?
     'voting_in_progress': False, # Are we in the 10s voting period?
     'round_start_time': None,
-    'round_duration': 30,      # 30 seconds
+    'round_duration': 600,      # 30 seconds
     'voting_start_time': None,
-    'voting_duration': 10,     # 10 seconds
+    'voting_duration': 600,     # 10 seconds
     'round_has_ended': False,
     'voting_has_ended': False
 }
