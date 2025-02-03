@@ -26,8 +26,10 @@
 
         <!-- White canvas on the right for drawing -->
         <div style="display:flex; position:relative;">
-            <canvas id="drawCanvas" width="900" height="600" style="border:3px solid #000; background-color:white; position:absolute; left:0; top:0;"></canvas>
-            <canvas id="handCanvas" width="900" height="600" style="border:3px solid #000; background-color:transparent; position:absolute; left:0; top:0;"></canvas>
+            <canvas id="drawCanvas" width="900" height="600"
+                style="border:3px solid #000; background-color:white; position:absolute; left:0; top:0;"></canvas>
+            <canvas id="handCanvas" width="900" height="600"
+                style="border:3px solid #000; background-color:transparent; position:absolute; left:0; top:0;"></canvas>
         </div>
     </div>
 
@@ -101,14 +103,13 @@
         let brushSize = 5;
         let prevX = null, prevY = null;
         const colors = [
-            [0, 'black'],
-            [100, 'red'],
-            [200, 'blue'],
-            [300, 'yellow'],
-            [400, 'green'],
-            [500, 'white'],
-        ]
-        const colorHeight = 100;
+            "rgb(20, 50, 5)",   // Much darker
+            "rgb(40, 120, 10)",  // Darker
+            "rgb(69, 180, 15)",  // Original color
+            "rgb(120, 230, 70)", // Lighter
+            "rgb(200, 255, 150)" // Much brighter
+        ];
+        const colorHeight = 600 / colors.length;
 
         clearCanvas();
         clearHandCanvas();
@@ -138,12 +139,13 @@
             // Flip the canvas horizontally to match the mirrored video
             handCanvasCtx.translate(handCanvasElement.width, 0);
             handCanvasCtx.scale(-1, 1);
-            
+
             handCanvasCtx.fillRect(0, 0, 100, 100);
-            for (const [start, color] of colors) {
+            colors.forEach((color, i) => {
                 handCanvasCtx.fillStyle = color;
-                handCanvasCtx.fillRect(0, start, paletteX, colorHeight);
-            }
+                handCanvasCtx.fillRect(0, i * colorHeight, paletteX, colorHeight);
+            })
+
             handCanvasCtx.fillStyle = "black";
             handCanvasCtx.fillRect(paletteX - 2, 0, 2, 600)
         }
@@ -241,14 +243,15 @@
         }
 
         function getColor(x, y) {
-            // console.log(`(${x}, ${y})`)
             if (x > paletteX)
                 return brushColor;
 
-            for (const [start, color] of colors) {
-                if (start <= y && y <= start + colorHeight) {
+            for (let i = 0; i < colors.length; i++) {
+                const color = colors[i];
+                const start = i * colorHeight;
+                // console.log($``)
+                if (start <= y && y <= start + colorHeight)
                     return color;
-                }
             }
             return brushColor;
         }
