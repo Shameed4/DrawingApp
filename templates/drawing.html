@@ -14,27 +14,27 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
 </head>
 
-<body class="light-purple-bg" style="margin:0; padding:0; text-align:center;">
+<body class="light-purple-bg" style="margin:0; padding:0; width:100%; text-align:center;">
     <h1 style="margin-top:20px;">Gesture Drawing (10 minutes)</h1>
     <div id="timer" style="text-align:center; font-size:18px;">Waiting for start...</div>
 
-    <div style="display:flex; justify-content:center; margin-top:20px;">
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-start; margin-top:20px;">
         <!-- Mirrored webcam feed on the left -->
-        <video id="userVideo" autoplay playsinline
-            style="border:1px solid black; width:320px; height:240px; margin-right:50px; transform: scaleX(-1);">
-        </video>
-
+        <div style="text-align:center; margin-top:20px;">
+            <video id="userVideo" autoplay playsinline
+                style="border:1px solid black; width:320px; height:240px; transform: scaleX(-1);">
+            </video>
+        </div>
+        <button onclick="clearCanvas()">Clear Canvas</button>
+        
         <!-- White canvas on the right for drawing -->
-        <div style="display:flex; position:relative;">
+
+        <div style="position:relative; width: 900px; height: 600px;">
             <canvas id="drawCanvas" width="900" height="600"
                 style="border:3px solid #000; background-color:white; position:absolute; left:0; top:0;"></canvas>
             <canvas id="handCanvas" width="900" height="600"
                 style="border:3px solid #000; background-color:transparent; position:absolute; left:0; top:0;"></canvas>
         </div>
-    </div>
-
-    <div style="text-align:center; margin-top:20px;">
-        <button onclick="clearCanvas()">Clear Canvas</button>
     </div>
 
     <script>
