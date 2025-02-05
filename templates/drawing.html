@@ -285,15 +285,29 @@
             drawingActive = false;
             // Convert final canvas to base64 image
             const canvasData = canvasElement.toDataURL('image/png');
-            // Capture a snapshot from the mirrored webcam
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = videoElement.videoWidth;
-            tempCanvas.height = videoElement.videoHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.translate(tempCanvas.width, 0);
-            tempCtx.scale(-1, 1);
-            tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
-            const webcamData = tempCanvas.toDataURL('image/png');
+
+            // Check if the webcam video has dimensions. If not, use a blank white image
+            let webcamData = "";
+            if (videoElement.videoWidth && videoElement.videoHeight) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = videoElement.videoWidth;
+                tempCanvas.height = videoElement.videoHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                // Flip the canvas for mirrored webcam
+                tempCtx.translate(tempCanvas.width, 0);
+                tempCtx.scale(-1, 1);
+                tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+                webcamData = tempCanvas.toDataURL('image/png');
+            } else {
+                // Use a default blank image if the webcam is not active
+                const blankCanvas = document.createElement('canvas');
+                blankCanvas.width = 320;
+                blankCanvas.height = 240;
+                const blankCtx = blankCanvas.getContext('2d');
+                blankCtx.fillStyle = 'white';
+                blankCtx.fillRect(0, 0, blankCanvas.width, blankCanvas.height);
+                webcamData = blankCanvas.toDataURL('image/png');
+            }
 
             // Submit drawing data via POST
             fetch("/submit_drawing", {
@@ -301,12 +315,12 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ canvas: canvasData, webcam: webcamData })
             })
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Submitted drawing:", data);
-                    document.getElementById('timer').innerText = "Submitted. Waiting...";
-                })
-                .catch(err => console.error(err));
+            .then(res => res.json())
+            .then(data => {
+                console.log("Submitted drawing:", data);
+                document.getElementById('timer').innerText = "Submitted. Waiting...";
+            })
+            .catch(err => console.error(err));
         }
     </script>
 </body>
