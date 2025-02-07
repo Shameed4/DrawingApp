@@ -192,8 +192,8 @@
 
             const extendedFingers = detectExtendedFingers(landmarks);
             // Draw the hand skeleton on the canvas
-            if (extendedFingers.includes(1) && extendedFingers.length === 1) {
-                drawWithIndex(landmarks[8]);
+            if (extendedFingers.includes(1) && !extendedFingers.includes(2)) {
+                drawWithIndex(extendedFingers.includes(4), landmarks[8]);
             } else {
                 prevX = null;
                 prevY = null;
@@ -240,6 +240,7 @@
 
         function getColor(x, y) {
             if (x > paletteX) return brushColor;
+
             for (let i = 0; i < colors.length; i++) {
                 const color = colors[i];
                 const start = i * colorHeight;
@@ -251,7 +252,7 @@
             return brushColor;
         }
 
-        function drawWithIndex(indexTip) {
+        function drawWithIndex(erase, indexTip) {
             // Transform the x-coordinate for the flipped canvas
             const x = indexTip.x * canvasElement.width;
             const y = indexTip.y * canvasElement.height;
@@ -266,8 +267,15 @@
                 prevX = x;
                 prevY = y;
             }
-            canvasCtx.strokeStyle = brushColor;
-            canvasCtx.lineWidth = brushSize;
+            if (erase) {
+                canvasCtx.strokeStyle = "white";
+                canvasCtx.lineWidth = brushSize * 5;
+            }
+            else {
+                canvasCtx.strokeStyle = brushColor;
+                canvasCtx.lineWidth = brushSize;
+            }
+
             canvasCtx.lineCap = 'round';
             canvasCtx.beginPath();
             canvasCtx.moveTo(prevX, prevY);
@@ -298,6 +306,9 @@
             }
             if (landmarks[12].y < landmarks[10].y && landmarks[10].y < landmarks[9].y)
                 extended.push(2);
+
+            if (landmarks[20].y < landmarks[18].y && landmarks[18].y < landmarks[17].y)
+                extended.push(4); 
             // You can similarly add for Ring (3) and Pinky (4) if needed.
 
             console.log(extended);
