@@ -25,8 +25,13 @@
                 style="border:1px solid black; width:320px; height:240px; transform: scaleX(-1);">
             </video>
         </div>
-        <button onclick="clearCanvas()">Clear Canvas</button>
-        
+        <div style="display: flex; gap: 30px;">
+            <button onclick="clearCanvas()">Clear Canvas</button>
+            <div id="brushColorElem"
+                style="width: 30px; height: 30px; border-radius: 50%; margin-bottom: 5px; background-color: black; border: 2px solid black;">
+            </div>
+        </div>
+
         <!-- White canvas on the right for drawing -->
 
         <div style="position:relative; width: 900px; height: 600px;">
@@ -101,6 +106,7 @@
         const canvasCtx = canvasElement.getContext('2d');
         const handCanvasElement = document.getElementById('handCanvas');
         const handCanvasCtx = handCanvasElement.getContext('2d');
+        const brushColorElem = document.getElementById("brushColorElem")
         const paletteX = 100;
         let brushColor = 'black';
         let brushSize = 5;
@@ -237,8 +243,10 @@
             for (let i = 0; i < colors.length; i++) {
                 const color = colors[i];
                 const start = i * colorHeight;
-                if (start <= y && y <= start + colorHeight)
+                if (start <= y && y <= start + colorHeight) {
+                    brushColorElem.style.backgroundColor = color;
                     return color;
+                }
             }
             return brushColor;
         }
@@ -269,14 +277,101 @@
             prevY = y;
         }
 
+        /**
+         * Returns an array of finger identifiers (1=Index, 2=Middle, 3=Ring, 4=Pinky)
+         * that are detected as extended.
+         */
         function detectExtendedFingers(landmarks) {
-            let extended = [];
-            if (landmarks[8].y < landmarks[6].y) extended.push(1);
-            if (landmarks[12].y < landmarks[10].y) extended.push(2);
-            if (landmarks[16].y < landmarks[14].y) extended.push(3);
-            if (landmarks[20].y < landmarks[18].y) extended.push(4);
+            const extended = [];
+
+            // Compute a simple palm center as the average of the wrist and the MCPs.
+            const palmCenter = computePalmCenter(landmarks);
+            // Estimate hand size (you can adjust this based on your data).
+            // For example, use the distance between the wrist (0) and middle finger MCP (9).
+            const handSize = distance(landmarks[0], landmarks[9]);
+
+            // For each finger, we use 4 landmarks:
+            // Index finger: 5,6,7,8; Middle: 9,10,11,12; etc.
+            if (isFingerStraight(landmarks[5], landmarks[6], landmarks[7], landmarks[8], 150, palmCenter, handSize) ||
+                (landmarks[8].y < landmarks[6].y && landmarks[6].y < landmarks[5].y)) {
+                extended.push(1);
+            }
+            if (landmarks[12].y < landmarks[10].y && landmarks[10].y < landmarks[9].y)
+                extended.push(2);
+            // You can similarly add for Ring (3) and Pinky (4) if needed.
+
+            console.log(extended);
             return extended;
         }
+
+        /**
+         * Returns true if the finger (given by its 4 landmarks: MCP, PIP, DIP, TIP)
+         * is "straight enough" (joint angles) and the fingertip is far enough from the palm.
+         *
+         * @param {Object} mcp - Base joint of the finger.
+         * @param {Object} pip - Proximal interphalangeal joint.
+         * @param {Object} dip - Distal interphalangeal joint.
+         * @param {Object} tip - Fingertip.
+         * @param {number} thresholdAngle - Minimum angle (in degrees) considered “straight” (e.g., 150 or 170).
+         * @param {Object} palmCenter - {x, y} coordinate of the computed palm center.
+         * @param {number} handSize - A measure of hand size to make the distance check scale-invariant.
+         */
+        function isFingerStraight(mcp, pip, dip, tip, thresholdAngle, palmCenter, handSize) {
+            const anglePIP = angleBetween(mcp, pip, dip); // angle at PIP joint
+            const angleDIP = angleBetween(pip, dip, tip);  // angle at DIP joint
+
+            // First, ensure that the finger joints are nearly in line.
+            if (anglePIP > thresholdAngle && angleDIP > thresholdAngle) {
+                // Additional check: if the fingertip is extended,
+                // its distance from the palm center should be significantly larger than that of the MCP.
+                const tipDist = distance(tip, palmCenter);
+                const mcpDist = distance(mcp, palmCenter);
+                // Adjust the multiplier (here 0.1) based on your experiments.
+                if (tipDist - mcpDist > handSize * 0.1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Computes the angle (in degrees) between segments AB and CB with B as the vertex.
+         */
+        function angleBetween(a, b, c) {
+            const ab = { x: a.x - b.x, y: a.y - b.y };
+            const cb = { x: c.x - b.x, y: c.y - b.y };
+            const dot = ab.x * cb.x + ab.y * cb.y;
+            const magAB = Math.hypot(ab.x, ab.y);
+            const magCB = Math.hypot(cb.x, cb.y);
+            if (magAB === 0 || magCB === 0) return 0;
+
+            // Clamp the cosine value to prevent errors.
+            const cosine = Math.max(-1, Math.min(1, dot / (magAB * magCB)));
+            return Math.acos(cosine) * (180 / Math.PI);
+        }
+
+        /**
+         * Computes the Euclidean distance between two points.
+         */
+        function distance(a, b) {
+            return Math.hypot(a.x - b.x, a.y - b.y);
+        }
+
+        /**
+         * Computes a simple palm center by averaging the positions of:
+         * the wrist (landmark 0) and the MCP joints of the Index (5), Middle (9), Ring (13),
+         * and Pinky (17) fingers.
+         */
+        function computePalmCenter(landmarks) {
+            const indices = [0, 5, 9, 13, 17];
+            let sumX = 0, sumY = 0;
+            for (const i of indices) {
+                sumX += landmarks[i].x;
+                sumY += landmarks[i].y;
+            }
+            return { x: sumX / indices.length, y: sumY / indices.length };
+        }
+
 
         /************************************************************
          * 6) End Drawing & Submit
@@ -315,12 +410,12 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ canvas: canvasData, webcam: webcamData })
             })
-            .then(res => res.json())
-            .then(data => {
-                console.log("Submitted drawing:", data);
-                document.getElementById('timer').innerText = "Submitted. Waiting...";
-            })
-            .catch(err => console.error(err));
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Submitted drawing:", data);
+                    document.getElementById('timer').innerText = "Submitted. Waiting...";
+                })
+                .catch(err => console.error(err));
         }
     </script>
 </body>
