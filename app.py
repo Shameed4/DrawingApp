@@ -44,7 +44,7 @@ GAME_STATE = {
     'in_progress': False,
     'voting_in_progress': False,
     'round_start_time': None,
-    'round_duration': 600,
+    'round_duration': 30,
     'voting_start_time': None,
     'voting_duration': 600,
     'round_has_ended': False,
