@@ -9,11 +9,11 @@
     <p>Welcome, {{ session['username'] }}!</p>
 
     <form action="{{ url_for('start_game') }}" method="POST">
-        <button type="submit">Start 10m Drawing</button>
+        <button type="submit">Start Drawing</button>
     </form>
 
     <form action="{{ url_for('start_voting') }}" method="POST">
-        <button type="submit">Start 10m Voting (Click twice to start voting)</button>
+        <button type="submit">Start Voting (Click twice to start voting)</button>
     </form>
 
     <form action="{{ url_for('end_voting') }}" method="POST">
@@ -33,6 +33,19 @@
     <form action="{{ url_for('set_theme', theme='wolfie') }}" method="POST" style="display:inline;">
         <button type="submit">Wolfie</button>
     </form>
-    
+
+    <h2>Select Drawing Time</h2>
+    <form action="{{ url_for('set_drawing_time') }}" method="POST">
+        <input type="radio" id="2min" name="drawing_time" value="120" {% if GAME_STATE.drawing_time == 120 %}checked{% endif %}>
+        <label for="2min">2 minutes</label><br>
+
+        <input type="radio" id="5min" name="drawing_time" value="300" {% if GAME_STATE.drawing_time == 300 %}checked{% endif %}>
+        <label for="5min">5 minutes</label><br>
+
+        <input type="radio" id="10min" name="drawing_time" value="600" {% if GAME_STATE.drawing_time == 600 %}checked{% endif %}>
+        <label for="10min">10 minutes</label><br>
+
+        <button type="submit">Set Drawing Time</button>
+    </form>
 </body>
 </html>

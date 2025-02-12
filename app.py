@@ -44,12 +44,13 @@ GAME_STATE = {
     'in_progress': False,
     'voting_in_progress': False,
     'round_start_time': None,
-    'round_duration': 600,
+    'round_duration': 600,  # Default to 10 minutes
     'voting_start_time': None,
     'voting_duration': 600,
     'round_has_ended': False,
     'voting_has_ended': False,
-    'theme_colors': THEMES["barbenheimer"]
+    'theme_colors': THEMES["barbenheimer"],
+    'drawing_time': 600  # Default drawing time in seconds (10 minutes)
 }
 
 
@@ -162,7 +163,7 @@ def admin_login():
 def admin_dashboard():
     if not session.get('is_admin'):
         return redirect(url_for('admin'))
-    return render_template("admin_dashboard.html")
+    return render_template("admin_dashboard.html", GAME_STATE=GAME_STATE)
 
 @app.route("/start_game", methods=['POST'])
 def start_game():
@@ -228,6 +229,15 @@ def set_theme(theme):
     if theme not in THEMES:
         return "Theme not found", 404
     GAME_STATE['theme_colors'] = THEMES[theme]
+    return redirect(url_for('admin_dashboard'))
+
+@app.route("/set_drawing_time", methods=['POST'])
+def set_drawing_time():
+    if not session.get('is_admin'):
+        return "Unauthorized", 403
+
+    drawing_time = int(request.form.get('drawing_time', 600))  # Default to 10 minutes
+    GAME_STATE['round_duration'] = drawing_time
     return redirect(url_for('admin_dashboard'))
 
 @app.route("/drawing")
